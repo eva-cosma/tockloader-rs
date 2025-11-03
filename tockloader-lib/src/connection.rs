@@ -6,6 +6,7 @@ use probe_rs::{Permissions, Session};
 use tokio::io::AsyncWriteExt;
 use tokio_serial::{FlowControl, Parity, SerialPort, SerialStream, StopBits};
 
+use crate::board_settings::BoardSettings;
 use crate::errors::TockloaderError;
 use log::info;
 pub struct ProbeTargetInfo {
@@ -51,6 +52,7 @@ pub trait Connection {
     /// `open` or any other method is undefined behavior.
     async fn close(&mut self) -> Result<(), TockloaderError>;
     fn is_open(&self) -> bool;
+    fn get_settings(&self) -> &BoardSettings;
 }
 
 pub struct ProbeRSConnection {
@@ -60,14 +62,20 @@ pub struct ProbeRSConnection {
     pub(crate) target_info: ProbeTargetInfo,
     /// Only used for opening a new connection
     debug_probe: DebugProbeInfo,
+    settings: BoardSettings,
 }
 
 impl ProbeRSConnection {
-    pub fn new(debug_probe: DebugProbeInfo, target_info: ProbeTargetInfo) -> Self {
+    pub fn new(
+        debug_probe: DebugProbeInfo,
+        target_info: ProbeTargetInfo,
+        settings: BoardSettings,
+    ) -> Self {
         Self {
             session: None,
             target_info,
             debug_probe,
+            settings,
         }
     }
 }
@@ -93,6 +101,10 @@ impl Connection for ProbeRSConnection {
     fn is_open(&self) -> bool {
         self.session.is_some()
     }
+
+    fn get_settings(&self) -> &BoardSettings {
+        &self.settings
+    }
 }
 
 pub struct SerialConnection {
@@ -102,14 +114,16 @@ pub struct SerialConnection {
     pub(crate) target_info: SerialTargetInfo,
     /// Path to the serial port. This is only used for opening a new connection.
     port: String,
+    settings: BoardSettings,
 }
 
 impl SerialConnection {
-    pub fn new(port: String, target_info: SerialTargetInfo) -> Self {
+    pub fn new(port: String, target_info: SerialTargetInfo, settings: BoardSettings) -> Self {
         Self {
             stream: None,
             target_info,
             port,
+            settings,
         }
     }
     pub fn into_inner_stream(self) -> Option<SerialStream> {
@@ -149,6 +163,10 @@ impl Connection for SerialConnection {
 
     fn is_open(&self) -> bool {
         self.stream.is_some()
+    }
+
+    fn get_settings(&self) -> &BoardSettings {
+        &self.settings
     }
 }
 
@@ -192,6 +210,13 @@ impl Connection for TockloaderConnection {
         match self {
             TockloaderConnection::ProbeRS(conn) => conn.is_open(),
             TockloaderConnection::Serial(conn) => conn.is_open(),
+        }
+    }
+
+    fn get_settings(&self) -> &BoardSettings {
+        match self {
+            TockloaderConnection::ProbeRS(conn) => conn.get_settings(),
+            TockloaderConnection::Serial(conn) => conn.get_settings(),
         }
     }
 }
