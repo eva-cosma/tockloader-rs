@@ -114,8 +114,12 @@ async fn open_connection(user_options: &ArgMatches) -> Result<TockloaderConnecti
                 .context("No device is connected.")?
         };
 
-        let mut conn: TockloaderConnection =
-            SerialConnection::new(path, get_serial_target_info(user_options)).into();
+        let mut conn: TockloaderConnection = SerialConnection::new(
+            path,
+            get_serial_target_info(user_options),
+            get_board_settings(user_options),
+        )
+        .into();
         conn.open()
             .await
             .context("Failed to open serial connection.")?;
@@ -127,8 +131,12 @@ async fn open_connection(user_options: &ArgMatches) -> Result<TockloaderConnecti
                 .prompt()
                 .context("No debug probe is connected.")?;
 
-        let mut conn: TockloaderConnection =
-            ProbeRSConnection::new(ans, get_probe_target_info(user_options)).into();
+        let mut conn: TockloaderConnection = ProbeRSConnection::new(
+            ans,
+            get_probe_target_info(user_options),
+            get_board_settings(user_options),
+        )
+        .into();
 
         conn.open()
             .await
@@ -202,19 +210,17 @@ async fn main() -> Result<()> {
             cli::validate(&mut cmd, sub_matches);
 
             let mut conn = open_connection(sub_matches).await?;
-            let settings = get_board_settings(sub_matches);
 
-            let app_details = conn.list(&settings).await.context("Failed to list apps.")?;
+            let app_details = conn.list().await.context("Failed to list apps.")?;
 
             display::print_list(&app_details).await;
         }
         Some(("info", sub_matches)) => {
             cli::validate(&mut cmd, sub_matches);
             let mut conn = open_connection(sub_matches).await?;
-            let settings = get_board_settings(sub_matches);
 
             let mut attributes = conn
-                .info(&settings)
+                .info()
                 .await
                 .context("Failed to get data from the board.")?;
 
@@ -226,20 +232,16 @@ async fn main() -> Result<()> {
                 .context("Failed to use provided tab file.")?;
 
             let mut conn = open_connection(sub_matches).await?;
-            let settings = get_board_settings(sub_matches);
 
-            conn.install_app(&settings, tab_file)
+            conn.install_app(tab_file)
                 .await
                 .context("Failed to install app.")?;
         }
         Some(("erase-apps", sub_matches)) => {
             cli::validate(&mut cmd, sub_matches);
             let mut conn = open_connection(sub_matches).await?;
-            let settings = get_board_settings(sub_matches);
 
-            conn.erase_apps(&settings)
-                .await
-                .context("Failed to erase apps.")?;
+            conn.erase_apps().await.context("Failed to erase apps.")?;
         }
         _ => {
             println!("Could not run the provided subcommand.");
