@@ -56,11 +56,7 @@ impl IOCommands for ProbeRSConnection {
         if !self.is_open() {
             return Err(InternalError::ConnectionNotOpen.into());
         }
-        let session = self.session.as_mut().expect("Board must be open");
-
-        let mut core = session.core(self.target_info.core)?;
-
-        let system_attributes = SystemAttributes::read_system_attributes_probe(&mut core)?;
+        let system_attributes = SystemAttributes::read_system_attributes(self).await?;
         Ok(system_attributes)
     }
 }
