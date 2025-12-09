@@ -83,7 +83,7 @@ impl IOCommands for SerialConnection {
 
         ping_bootloader_and_wait_for_response(stream).await?;
 
-        let system_attributes = SystemAttributes::read_system_attributes_serial(stream).await?;
+        let system_attributes = SystemAttributes::read_system_attributes(self).await?;
         Ok(system_attributes)
     }
 }
