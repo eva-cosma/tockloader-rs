@@ -46,10 +46,7 @@ impl IOCommands for ProbeRSConnection {
             return Err(InternalError::ConnectionNotOpen.into());
         }
         let start_address = self.get_settings().start_address;
-        let session = self.session.as_mut().expect("Board must be open");
-        let mut core = session.core(self.target_info.core)?;
-
-        AppAttributes::read_apps_data_probe(&mut core, start_address)
+        AppAttributes::read_apps_data(self, start_address).await
     }
 
     async fn read_system_attributes(&mut self) -> Result<SystemAttributes, TockloaderError> {
