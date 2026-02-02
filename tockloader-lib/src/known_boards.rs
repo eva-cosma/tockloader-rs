@@ -26,6 +26,7 @@ impl KnownBoard for NucleoF4 {
             arch: Some("cortex-m4".to_string()),
             start_address: 0x08040000,
             page_size: 512,
+            ram_start_address: 0x20000000,
         }
     }
 }
@@ -49,6 +50,7 @@ impl KnownBoard for MicrobitV2 {
             arch: Some("cortex-m4".to_string()),
             start_address: 0x00040000,
             page_size: 512,
+            ram_start_address: 0x20000000,
         }
     }
 }

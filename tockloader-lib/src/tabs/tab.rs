@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 // Copyright OXIDOS AUTOMOTIVE 2024.
 
+use crate::board_settings::BoardSettings;
 use crate::errors::{TabError, TockloaderError};
 use crate::tabs::metadata::Metadata;
 use std::fs::File;
 use std::io::Read;
 use tar::Archive;
 
-struct TbfFile {
+pub struct TbfFile {
     pub filename: String,
     pub data: Vec<u8>,
 }
@@ -75,9 +76,64 @@ impl Tab {
         }
     }
 
-    pub fn extract_binary(&self, arch: &str) -> Result<Vec<u8>, TockloaderError> {
+    /// This function returns all the compatible binaries for a given tab
+    ///
+    /// Vector components:
+    ///     - binary (Vec<u8>)
+    ///     - start_address: u64
+    ///     - ram_start_address: u64
+    pub fn filter_tbfs(
+        &self,
+        settings: &BoardSettings,
+    ) -> Result<Vec<Option<(u64, u64)>>, TockloaderError> {
+        // save the file
+        // also save flash start and ram start for comparing easily later
+        let mut compatible_tbfs: Vec<Option<(u64, u64)>> = Vec::new();
         for file in &self.tbf_files {
-            if file.filename.starts_with(arch) {
+            let (arch, flash, ram) = Self::split_arch(file.filename.to_string());
+            // check if we have the same arch
+            // check if flash and ram fit
+            if flash != 0 && ram != 0 {
+                if arch.starts_with(settings.arch.as_ref().unwrap())
+                    && flash >= settings.start_address
+                    && ram >= settings.ram_start_address
+                {
+                    log::info!("rust, pushed arch {arch}, flash {flash:#x}, ram {ram:#x}");
+                    compatible_tbfs.push(Some((flash, ram)));
+                }
+            }
+            // how about we don't do anything on else?
+            // } else if arch.starts_with(settings.arch.as_ref().unwrap()) {
+            //     // this happens for C apps, we'll have
+            //     // arch = "cortex-m4.tbf"
+            //     // without any flash and ram values
+            //     compatible_tbfs.push(None);
+            // }
+        }
+        Ok(compatible_tbfs)
+    }
+
+    fn split_arch(filename: String) -> (String, u64, u64) {
+        // filename is always formatted like this:
+        // "cortex-m0.0x10020000.0x20004000.tab"
+        // splitting by .0x will give us "arch", "flash start", "ram start.tab"
+        // 3 items
+        // log::info!("filename {filename}");
+        let data: Vec<&str> = filename.split(".0x").collect();
+        if data.len() == 3 {
+            let flashaddr: u64 = u64::from_str_radix(data[1], 16).unwrap();
+            // split the ram address again because it also contains .tab
+            // take the first item of the tuple
+            let ramaddr: u64 = u64::from_str_radix(data[2].split_once(".").unwrap().0, 16).unwrap();
+            (data[0].to_string(), flashaddr, ramaddr)
+        } else {
+            (data[0].to_string(), 0, 0)
+        }
+    }
+
+    pub fn extract_binary(&self, arch: String) -> Result<Vec<u8>, TockloaderError> {
+        for file in &self.tbf_files {
+            if file.filename.starts_with(&arch) {
                 return Ok(file.data.clone());
             }
         }

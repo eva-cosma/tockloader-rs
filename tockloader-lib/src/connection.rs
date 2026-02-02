@@ -52,7 +52,7 @@ pub trait Connection {
     /// `open` or any other method is undefined behavior.
     async fn close(&mut self) -> Result<(), TockloaderError>;
     fn is_open(&self) -> bool;
-    fn get_settings(&self) -> &BoardSettings;
+    fn get_settings(&self) -> BoardSettings;
 }
 
 pub struct ProbeRSConnection {
@@ -62,7 +62,7 @@ pub struct ProbeRSConnection {
     pub(crate) target_info: ProbeTargetInfo,
     /// Only used for opening a new connection
     debug_probe: DebugProbeInfo,
-    settings: BoardSettings,
+    pub settings: BoardSettings,
 }
 
 impl ProbeRSConnection {
@@ -102,8 +102,8 @@ impl Connection for ProbeRSConnection {
         self.session.is_some()
     }
 
-    fn get_settings(&self) -> &BoardSettings {
-        &self.settings
+    fn get_settings(&self) -> BoardSettings {
+        self.settings.clone()
     }
 }
 
@@ -114,7 +114,7 @@ pub struct SerialConnection {
     pub(crate) target_info: SerialTargetInfo,
     /// Path to the serial port. This is only used for opening a new connection.
     port: String,
-    settings: BoardSettings,
+    pub settings: BoardSettings,
 }
 
 impl SerialConnection {
@@ -165,8 +165,8 @@ impl Connection for SerialConnection {
         self.stream.is_some()
     }
 
-    fn get_settings(&self) -> &BoardSettings {
-        &self.settings
+    fn get_settings(&self) -> BoardSettings {
+        self.settings.clone()
     }
 }
 
@@ -213,7 +213,7 @@ impl Connection for TockloaderConnection {
         }
     }
 
-    fn get_settings(&self) -> &BoardSettings {
+    fn get_settings(&self) -> BoardSettings {
         match self {
             TockloaderConnection::ProbeRS(conn) => conn.get_settings(),
             TockloaderConnection::Serial(conn) => conn.get_settings(),
