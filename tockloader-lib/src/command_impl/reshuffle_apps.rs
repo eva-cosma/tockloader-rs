@@ -188,7 +188,119 @@ pub fn reshuffle_apps(
     // addresses can be used. Otherwise, the algorithm will just look for the next
     // available address, leaving a lot of space in the front. This can happen
     // after uninstalling a rust app
+
+    for app in &rust_apps {
+        print!("rust app address(es): ");
+        for address in &app.compatible_addresses {
+            if address.is_some() {
+                print!("[{:#x}, {:#x}]", address.unwrap().0, address.unwrap().1);
+            }
+        }
+        println!();
+    }
+
     rust_apps.sort_by_key(|app| app.compatible_addresses[0].unwrap().0);
+
+    let mut initial_configuration: Vec<Index> = Vec::new();
+    let mut new_rust_app: Option<&FixedApp> = None;
+    for app in &rust_apps {
+        if app.installed {
+            initial_configuration.push(app.as_index(
+                Some(app.compatible_addresses[0].unwrap().1),
+                app.compatible_addresses[0].unwrap().0,
+            ));
+        } else {
+            new_rust_app = Some(app);
+        }
+    }
+
+    log::info!("first intial configuration: ");
+    for app in &initial_configuration {
+        log::info!(
+            "app idx {}, addr {:#x}, size {}",
+            app.idx.unwrap(),
+            app.address,
+            app.size
+        );
+    }
+
+    if let Some(new_app) = new_rust_app {
+        let mut found: bool = false;
+        for candidate in new_app.compatible_addresses.iter().flatten() {
+            let (flash_addr, ram_addr) = *candidate;
+            let new_start = flash_addr;
+            let new_end = flash_addr + new_app.size;
+            log::info!(
+                "checking for new_start {:#x}, new_end {:#x}",
+                new_start,
+                new_end
+            );
+
+            // Check before first element
+            if initial_configuration.is_empty() {
+                initial_configuration.push(new_app.as_index(Some(ram_addr), flash_addr));
+                found = true;
+                break;
+            }
+
+            // Check gap before first installed app
+            let first = &initial_configuration[0];
+            if new_end <= first.address {
+                initial_configuration.insert(0, new_app.as_index(Some(ram_addr), flash_addr));
+                found = true;
+                break;
+            }
+
+            // Check gaps between apps
+            for i in 0..initial_configuration.len() - 1 {
+                let current = &initial_configuration[i];
+                let next = &initial_configuration[i + 1];
+
+                let gap_start = current.address + current.size;
+                let gap_end = next.address;
+
+                if new_start >= gap_start && new_end <= gap_end {
+                    initial_configuration
+                        .insert(i + 1, new_app.as_index(Some(ram_addr), flash_addr));
+                    found = true;
+                    break;
+                }
+            }
+
+            // Check after last app
+            let last = initial_configuration.last().unwrap();
+            let gap_start = last.address + last.size;
+
+            log::info!(
+                "checking for last gap {:#x}, obtained with addr {:#x}, size {}",
+                gap_start,
+                last.address,
+                last.size
+            );
+
+            if new_start >= gap_start {
+                initial_configuration.push(new_app.as_index(Some(ram_addr), flash_addr));
+                found = true;
+                break;
+            }
+        }
+
+        if !found {
+            warn!("No suitable space found for new app");
+            return None;
+        }
+    }
+
+    println!("final intial configuration: ");
+    for app in &initial_configuration {
+        println!(
+            "app idx {}, addr {:#x}, size {}",
+            app.idx.unwrap(),
+            app.address,
+            app.size
+        );
+    }
+
     log::info!("sorted rust apps {:#x?}", rust_apps);
     // panic!();
 
@@ -211,136 +323,123 @@ pub fn reshuffle_apps(
             let mut total_padding: usize = 0;
             let mut permutation_index: usize = 0;
             let mut rust_index: usize = 0;
-            let mut reordered_apps: Vec<Index> = Vec::new();
+            let mut reordered_apps: Vec<Index> = initial_configuration.clone();
             let mut compatible_index: usize = 0;
-            loop {
-                let insert_c: bool; // every iteration will insert an app, or break if there are none left
 
-                // start either where the last app ends, or at start address if there are no apps
-                let address = reordered_apps
-                    .last()
-                    .map_or(settings.start_address, |app| app.address + app.size);
+            for index in order {
+                let c_app = &c_apps[index];
+                let insert_size = c_app.size;
 
-                if order.get(permutation_index).is_some() {
-                    // we have a C app
-                    if rust_apps.get(rust_index).is_some() {
-                        // we also have a rust app, insert C app only if it fits
-                        loop {
-                            if rust_apps[rust_index].compatible_addresses[compatible_index]
-                                .expect("No available binary (idk)")
-                                .0
-                                >= address
-                            {
-                                break;
-                            } else {
-                                compatible_index += 1;
-                            }
-                        }
-                        insert_c = c_apps[order[permutation_index]].size
-                            <= rust_apps[rust_index].compatible_addresses[compatible_index]
-                                .expect("No candidate (1)")
-                                .0
-                                - address;
+                if reordered_apps.is_empty() {
+                    reordered_apps.push(c_app.as_index(None, settings.start_address));
+
+                    continue;
+                }
+
+                log::info!("checking for intermediate");
+                let mut inserted = false;
+
+                for i in 0..reordered_apps.len() - 1 {
+                    let base = reordered_apps[i].address + reordered_apps[i].size;
+                    let gap = reordered_apps[i + 1].address - base;
+
+                    let needed_padding = if !base.is_multiple_of(settings.page_size) {
+                        settings.page_size - base % settings.page_size
                     } else {
-                        // we have only a C app, insert it accordingly
-                        insert_c = true;
-                    }
-                } else {
-                    // we don't have a c app
-                    if rust_apps.get(rust_index).is_some() {
-                        loop {
-                            log::info!(
-                                "comparing rust app addr {:#x?} and address {:#x?}",
-                                rust_apps[rust_index].compatible_addresses[compatible_index]
-                                    .unwrap()
-                                    .0,
-                                address
+                        0
+                    };
+
+                    let final_addr = base + needed_padding;
+
+                    if insert_size + needed_padding <= gap {
+                        if needed_padding > 0 {
+                            total_padding += needed_padding as usize;
+
+                            reordered_apps.insert(
+                                i + 1,
+                                Index {
+                                    installed: false,
+                                    idx: None,
+                                    fixed: false,
+                                    ram_address: None,
+                                    address: base,
+                                    size: needed_padding,
+                                },
                             );
-                            if rust_apps[rust_index].compatible_addresses[compatible_index]
-                                .expect("No available binary (idk)")
-                                .0
-                                >= address
-                            {
-                                break;
-                            } else {
-                                compatible_index += 1;
-                            }
+
+                            reordered_apps.insert(i + 2, c_app.as_index(None, final_addr));
+                        } else {
+                            reordered_apps.insert(i + 1, c_app.as_index(None, final_addr));
                         }
-                        // we have a rust app, insert it
-                        insert_c = false;
-                    } else {
-                        // we don't have any app, break?
+
+                        inserted = true;
                         break;
                     }
                 }
 
-                let mut start_address = reordered_apps
-                    .last()
-                    .map_or(settings.start_address, |app| app.address + app.size);
+                if !inserted {
+                    let last = reordered_apps.last().unwrap();
+                    let gap_start = last.address + last.size;
 
-                let needed_padding = if insert_c {
-                    if !start_address.is_multiple_of(settings.page_size) {
+                    log::info!(
+                        "checking for last gap {:#x}, obtained with addr {:#x}, size {}",
+                        gap_start,
+                        last.address,
+                        last.size
+                    );
+
+                    let needed_padding = if !gap_start.is_multiple_of(settings.page_size) {
                         // c app needs to be inserted at a multiple of page_size
-                        settings.page_size - start_address % settings.page_size
+                        settings.page_size - gap_start % settings.page_size
                     } else {
                         0
+                    };
+
+                    if needed_padding > 0 {
+                        // insert a padding
+                        total_padding += needed_padding as usize;
+                        reordered_apps.push(Index {
+                            installed: false,
+                            idx: None,
+                            fixed: false,
+                            ram_address: None,
+                            address: settings.start_address + insert_size,
+                            size: needed_padding,
+                        });
+                        reordered_apps.push(c_app.as_index(None, gap_start + needed_padding));
+                        total_padding += needed_padding as usize;
+                    } else {
+                        reordered_apps.push(c_app.as_index(None, gap_start));
                     }
-                } else {
-                    // rust app needs to be inserted at a fixed address, pad until there
-                    rust_apps[rust_index].compatible_addresses[compatible_index]
-                        .expect("No compatible address! (3)")
-                        .0
-                        - start_address
-                };
+                }
+            }
 
-                if needed_padding > 0 {
-                    // insert a padding
-                    total_padding += needed_padding as usize;
-                    reordered_apps.push(Index {
-                        installed: false,
-                        idx: None,
-                        fixed: false,
-                        ram_address: None,
-                        address: start_address,
-                        size: needed_padding,
-                    });
+            log::info!(
+                "obtained config before padding check {:#x?}",
+                reordered_apps
+            );
 
-                    start_address += needed_padding as u64;
+            let mut i = 0;
+            while i < reordered_apps.len() - 1 {
+                let gap = reordered_apps[i + 1].address
+                    - (reordered_apps[i].address + reordered_apps[i].size);
+
+                if gap > 0 {
+                    reordered_apps.insert(
+                        i + 1,
+                        Index {
+                            installed: false,
+                            idx: None,
+                            fixed: false,
+                            ram_address: None,
+                            address: reordered_apps[i].address + reordered_apps[i].size,
+                            size: gap,
+                        },
+                    );
+                    i += 1; // skip over inserted padding
                 }
 
-                if insert_c {
-                    // insert the c app, also change its address
-                    let c_app = c_apps[order[permutation_index]].as_index(None, start_address);
-                    if c_app.idx.is_none() {
-                        panic!("C app has no index assigned!");
-                    }
-
-                    reordered_apps.push(c_app);
-                    permutation_index += 1;
-                } else {
-                    // insert the rust app, don't change its address because it is fixed
-                    let rust_app = rust_apps[rust_index].as_index(
-                        Some(
-                            rust_apps[rust_index].compatible_addresses[compatible_index]
-                                .expect("No compatible address! (4)")
-                                .1,
-                        ),
-                        rust_apps[rust_index].compatible_addresses[compatible_index]
-                            .expect("No compatible address! (4)")
-                            .0,
-                    );
-                    log::debug!(
-                        "rust app flash {:#x?}, rust app ram {:#x?}",
-                        rust_app.address,
-                        rust_app.ram_address
-                    );
-                    if rust_app.idx.is_none() {
-                        panic!("Rust app has no index assigned!");
-                    }
-
-                    reordered_apps.push(rust_app);
-                    rust_index += 1;
-                }
+                i += 1;
             }
 
             // find the configuration that uses the minimum padding
@@ -356,6 +455,7 @@ pub fn reshuffle_apps(
         }
     }
     log::info!("obtained config {:#x?}", saved_configuration);
+    // panic!();
     Some(saved_configuration)
 }
 
