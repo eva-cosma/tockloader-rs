@@ -93,15 +93,15 @@ impl Tab {
             let (arch, flash, ram) = Self::split_arch(file.filename.to_string());
             // check if we have the same arch
             // check if flash and ram fit
-            if flash != 0 && ram != 0 {
-                if arch.starts_with(settings.arch.as_ref().unwrap())
-                    && flash >= settings.start_address
-                    && ram >= settings.ram_start_address
-                {
-                    log::info!("rust, pushed arch {arch}, flash {flash:#x}, ram {ram:#x}");
-                    compatible_tbfs.push(Some((flash, ram)));
-                }
+            if flash != 0
+                && ram != 0
+                && arch.starts_with(settings.arch.as_ref().unwrap())
+                && flash >= settings.start_address
+            {
+                log::info!("rust, pushed arch {arch}, flash {flash:#x}, ram {ram:#x}");
+                compatible_tbfs.push(Some((flash, ram)));
             }
+
             // how about we don't do anything on else?
             // } else if arch.starts_with(settings.arch.as_ref().unwrap()) {
             //     // this happens for C apps, we'll have
