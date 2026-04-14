@@ -3,8 +3,7 @@ use log::warn;
 
 use crate::attributes::app_attributes::AppAttributes;
 use crate::board_settings::BoardSettings;
-use crate::errors::{InternalError, TabError};
-use crate::tabs::tab::{Tab, TbfFile};
+use crate::tabs::tab::Tab;
 use tbf_parser::parse::{parse_tbf_header, parse_tbf_header_lengths};
 
 const ALIGNMENT: u64 = 1024;
@@ -17,18 +16,18 @@ pub enum TockApp {
 
 #[derive(Clone, Debug)]
 pub struct FlexibleApp {
-    installed: bool,
-    idx: Option<usize>,
-    size: u64,
+    pub installed: bool,
+    pub idx: Option<usize>,
+    pub size: u64,
 }
 
 #[derive(Clone, Debug)]
 pub struct FixedApp {
-    installed: bool,
-    idx: Option<usize>,
+    pub installed: bool,
+    pub idx: Option<usize>,
     // flash: u64 and ram: u64
-    compatible_addresses: Vec<Option<(u64, u64)>>,
-    size: u64,
+    pub compatible_addresses: Vec<Option<(u64, u64)>>,
+    pub size: u64,
 }
 
 impl TockApp {
@@ -130,7 +129,6 @@ impl FixedApp {
         Index {
             installed: self.installed,
             idx: self.idx,
-            fixed: true,
             ram_address,
             address: install_address,
             size: self.size,
@@ -143,7 +141,6 @@ impl FlexibleApp {
         Index {
             installed: self.installed,
             idx: self.idx,
-            fixed: false,
             ram_address,
             address: install_address,
             size: self.size,
@@ -151,14 +148,13 @@ impl FlexibleApp {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Index {
-    installed: bool,
-    idx: Option<usize>,
-    fixed: bool,
-    ram_address: Option<u64>,
-    address: u64,
-    size: u64,
+    pub installed: bool,
+    pub idx: Option<usize>,
+    pub ram_address: Option<u64>,
+    pub address: u64,
+    pub size: u64,
 }
 
 pub fn reshuffle_apps(
@@ -321,10 +317,7 @@ pub fn reshuffle_apps(
         // use just 100k permutations, or else we'll be here for a while
         if let Some(order) = permutations.next() {
             let mut total_padding: usize = 0;
-            let mut permutation_index: usize = 0;
-            let mut rust_index: usize = 0;
             let mut reordered_apps: Vec<Index> = initial_configuration.clone();
-            let mut compatible_index: usize = 0;
 
             for index in order {
                 let c_app = &c_apps[index];
@@ -360,7 +353,6 @@ pub fn reshuffle_apps(
                                 Index {
                                     installed: false,
                                     idx: None,
-                                    fixed: false,
                                     ram_address: None,
                                     address: base,
                                     size: needed_padding,
@@ -401,7 +393,6 @@ pub fn reshuffle_apps(
                         reordered_apps.push(Index {
                             installed: false,
                             idx: None,
-                            fixed: false,
                             ram_address: None,
                             address: settings.start_address + insert_size,
                             size: needed_padding,
@@ -430,7 +421,6 @@ pub fn reshuffle_apps(
                         Index {
                             installed: false,
                             idx: None,
-                            fixed: false,
                             ram_address: None,
                             address: reordered_apps[i].address + reordered_apps[i].size,
                             size: gap,
