@@ -96,7 +96,7 @@ impl TockApp {
         let header =
             parse_tbf_header(&binary[0..header_len as usize], tbf_version).expect("invalid header");
 
-        if let Some(_) = header.get_fixed_address_flash() {
+        if header.get_fixed_address_flash().is_some() {
             // addr = align_down(addr as u64) as u32;
             // if addr < settings.start_address as u32 {
             //     // this rust app should not be here
@@ -481,29 +481,277 @@ pub fn create_pkt(
 ) -> Vec<u8> {
     let mut pkt: Vec<u8> = Vec::new();
     for item in configuration.iter() {
-        if item.idx.is_none() {
-            // write padding binary
-            let mut buf = create_padding(item.size as u32);
-            pkt.append(&mut buf);
-        } else {
+        if let Some(idx) = item.idx {
             match &item.installed {
-                true => pkt.append(&mut app_binaries[item.idx.unwrap()]),
+                true => pkt.append(&mut app_binaries[idx]),
                 false => {
                     let mut arch: String = settings.arch.clone().unwrap();
                     // if ram is set, this is a rust app, we need to reconstruct the arch and then
                     // read the binary from the tab
-                    if item.ram_address.is_some() {
-                        arch = format!(
-                            "{}.0x{:08x}.0x{:08x}",
-                            arch,
-                            item.address,
-                            item.ram_address.unwrap()
-                        );
+                    if let Some(ram_address) = item.ram_address {
+                        arch = format!("{}.0x{:08x}.0x{:08x}", arch, item.address, ram_address);
                     }
                     pkt.append(&mut tab.as_ref().unwrap().extract_binary(arch).unwrap());
                 }
             }
+        } else {
+            // write padding binary
+            let mut buf = create_padding(item.size as u32);
+            pkt.append(&mut buf);
         }
     }
     pkt
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn install_new_c_app() {
+        let settings: &BoardSettings = &BoardSettings {
+            arch: Some("cortex-m4".to_string()),
+            start_address: 0x00040000,
+            page_size: 512,
+            ram_start_address: 0x20000000,
+        };
+
+        let c_app_1: TockApp = TockApp::Flexible(FlexibleApp {
+            installed: true,
+            idx: None,
+            size: 0x2000,
+        });
+
+        let c_app_2: TockApp = TockApp::Flexible(FlexibleApp {
+            installed: true,
+            idx: None,
+            size: 0x2000,
+        });
+
+        let c_app_3: TockApp = TockApp::Flexible(FlexibleApp {
+            installed: false,
+            idx: None,
+            size: 0x2000,
+        });
+
+        let apps: Vec<TockApp> = vec![c_app_1, c_app_2, c_app_3];
+
+        let reshuffled_apps = reshuffle_apps(settings, apps);
+
+        let correct_config: Option<Vec<Index>> = Some(vec![
+            Index {
+                installed: true,
+                idx: Some(0x0),
+                ram_address: None,
+                address: 0x40000,
+                size: 0x2000,
+            },
+            Index {
+                installed: true,
+                idx: Some(0x1),
+                ram_address: None,
+                address: 0x42000,
+                size: 0x2000,
+            },
+            Index {
+                installed: false,
+                idx: Some(0x2),
+                ram_address: None,
+                address: 0x44000,
+                size: 0x2000,
+            },
+        ]);
+        assert_eq!(reshuffled_apps, correct_config);
+    }
+
+    #[test]
+    fn install_new_rust_app() {
+        let settings: &BoardSettings = &BoardSettings {
+            arch: Some("cortex-m4".to_string()),
+            start_address: 0x00040000,
+            page_size: 512,
+            ram_start_address: 0x20000000,
+        };
+
+        let rust_app: TockApp = TockApp::Fixed(FixedApp {
+            installed: false,
+            idx: None,
+            compatible_addresses: vec![
+                Some((0x40000, 0x20008000)),
+                Some((0x42000, 0x2000a000)),
+                Some((0x48000, 0x20010000)),
+                Some((0x80000, 0x20006000)),
+                Some((0x88000, 0x2000e000)),
+            ],
+            size: 0x2000,
+        });
+
+        let apps: Vec<TockApp> = vec![rust_app];
+
+        let reshuffled_apps = reshuffle_apps(settings, apps);
+
+        let correct_config: Option<Vec<Index>> = Some(vec![Index {
+            installed: false,
+            idx: Some(0x0),
+            ram_address: Some(0x20008000),
+            address: 0x40000,
+            size: 0x2000,
+        }]);
+        assert_eq!(reshuffled_apps, correct_config);
+    }
+
+    #[test]
+    fn install_more_rust_apps() {
+        let settings: &BoardSettings = &BoardSettings {
+            arch: Some("cortex-m4".to_string()),
+            start_address: 0x00040000,
+            page_size: 512,
+            ram_start_address: 0x20000000,
+        };
+
+        let rust_app_1: TockApp = TockApp::Fixed(FixedApp {
+            installed: true,
+            idx: None,
+            compatible_addresses: vec![Some((0x40000, 0x20008000))],
+            size: 0x2000,
+        });
+
+        let rust_app_2: TockApp = TockApp::Fixed(FixedApp {
+            installed: true,
+            idx: None,
+            compatible_addresses: vec![Some((0x42000, 0x2000a000))],
+            size: 0x2000,
+        });
+
+        let rust_app_3: TockApp = TockApp::Fixed(FixedApp {
+            installed: false,
+            idx: None,
+            compatible_addresses: vec![
+                Some((0x40000, 0x20008000)),
+                Some((0x42000, 0x2000a000)),
+                Some((0x48000, 0x20010000)),
+                Some((0x80000, 0x20006000)),
+                Some((0x88000, 0x2000e000)),
+            ],
+            size: 0x2000,
+        });
+
+        let apps: Vec<TockApp> = vec![rust_app_1, rust_app_2, rust_app_3];
+
+        let reshuffled_apps = reshuffle_apps(settings, apps);
+
+        let correct_config: Option<Vec<Index>> = Some(vec![
+            Index {
+                installed: true,
+                idx: Some(0x0),
+                ram_address: Some(0x20008000),
+                address: 0x40000,
+                size: 0x2000,
+            },
+            Index {
+                installed: true,
+                idx: Some(0x1),
+                ram_address: Some(0x2000a000),
+                address: 0x42000,
+                size: 0x2000,
+            },
+            // padding
+            Index {
+                installed: false,
+                idx: None,
+                ram_address: None,
+                address: 0x44000,
+                size: 0x4000,
+            },
+            Index {
+                installed: false,
+                idx: Some(0x2),
+                ram_address: Some(0x20010000),
+                address: 0x48000,
+                size: 0x2000,
+            },
+        ]);
+        assert_eq!(reshuffled_apps, correct_config);
+    }
+
+    #[test]
+    fn insert_c_app_between_rust_apps() {
+        let settings: &BoardSettings = &BoardSettings {
+            arch: Some("cortex-m4".to_string()),
+            start_address: 0x00040000,
+            page_size: 512,
+            ram_start_address: 0x20000000,
+        };
+
+        let rust_app_1: TockApp = TockApp::Fixed(FixedApp {
+            installed: true,
+            idx: None,
+            compatible_addresses: vec![Some((0x40000, 0x20008000))],
+            size: 0x2000,
+        });
+
+        let rust_app_2: TockApp = TockApp::Fixed(FixedApp {
+            installed: true,
+            idx: None,
+            compatible_addresses: vec![Some((0x42000, 0x2000a000))],
+            size: 0x2000,
+        });
+
+        let rust_app_3: TockApp = TockApp::Fixed(FixedApp {
+            installed: true,
+            idx: None,
+            compatible_addresses: vec![Some((0x48000, 0x20010000))],
+            size: 0x2000,
+        });
+
+        let c_app_1: TockApp = TockApp::Flexible(FlexibleApp {
+            installed: false,
+            idx: None,
+            size: 0x2000,
+        });
+
+        let apps: Vec<TockApp> = vec![rust_app_1, rust_app_2, rust_app_3, c_app_1];
+
+        let reshuffled_apps = reshuffle_apps(settings, apps);
+
+        let correct_config: Option<Vec<Index>> = Some(vec![
+            Index {
+                installed: true,
+                idx: Some(0x0),
+                ram_address: Some(0x20008000),
+                address: 0x40000,
+                size: 0x2000,
+            },
+            Index {
+                installed: true,
+                idx: Some(0x1),
+                ram_address: Some(0x2000a000),
+                address: 0x42000,
+                size: 0x2000,
+            },
+            Index {
+                installed: false,
+                idx: Some(0x3),
+                ram_address: None,
+                address: 0x44000,
+                size: 0x2000,
+            },
+            // padding
+            Index {
+                installed: false,
+                idx: None,
+                ram_address: None,
+                address: 0x46000,
+                size: 0x2000,
+            },
+            Index {
+                installed: true,
+                idx: Some(0x2),
+                ram_address: Some(0x20010000),
+                address: 0x48000,
+                size: 0x2000,
+            },
+        ]);
+        assert_eq!(reshuffled_apps, correct_config);
+    }
 }

@@ -14,7 +14,7 @@ impl CommandInstall for TockloaderConnection {
         let app_attributes_list: Vec<AppAttributes> = self.list().await?;
         let mut tock_app_list = app_attributes_list
             .iter()
-            .map(|app| TockApp::from_app_attributes(app))
+            .map(TockApp::from_app_attributes)
             .collect::<Vec<TockApp>>();
         log::info!("tock apps len {:?}", tock_app_list.len());
 
