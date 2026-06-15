@@ -73,6 +73,8 @@ impl KnownBoard for Nrf52840dk {
         BoardSettings {
             arch: Some("cortex-m4".to_string()),
             start_address: 0x00040000,
+            page_size: 4096,
+            ram_start_address: 0x20008000,
         }
     }
 }
