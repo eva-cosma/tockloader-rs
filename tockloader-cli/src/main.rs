@@ -94,6 +94,9 @@ fn get_known_board(user_options: &ArgMatches) -> Option<Box<dyn KnownBoard>> {
             KnownBoardNames::MicrobitV2 => {
                 Box::new(tockloader_lib::known_boards::MicrobitV2) as Box<dyn KnownBoard>
             }
+            KnownBoardNames::Nrf52840dk => {
+                Box::new(tockloader_lib::known_boards::Nrf52840dk) as Box<dyn KnownBoard>
+            }
         }
     })
 }

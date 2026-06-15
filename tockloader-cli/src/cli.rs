@@ -32,7 +32,7 @@ fn get_subcommands() -> Vec<Command> {
             .about("Open a terminal to receive UART data")
             .args(get_channel_args())
             .args([
-                // TODO(george-cosma): Change default to pconsole when new format is implemented and adopted into tock
+                // TODO(eva-cosma): Change default to pconsole when new format is implemented and adopted into tock
                 arg!(--protocol <PROTOCOL> "Choose between legacy and pconsole protocol")
                     .default_value("legacy")
                     .value_parser(["legacy", "pconsole"]),

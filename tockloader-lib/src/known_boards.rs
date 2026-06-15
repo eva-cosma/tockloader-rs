@@ -50,3 +50,25 @@ impl KnownBoard for MicrobitV2 {
         }
     }
 }
+
+pub struct Nrf52840dk;
+
+impl KnownBoard for Nrf52840dk {
+    fn serial_target_info(&self) -> SerialTargetInfo {
+        SerialTargetInfo::default()
+    }
+
+    fn probe_target_info(&self) -> ProbeTargetInfo {
+        ProbeTargetInfo {
+            chip: "nRF52840_xxAA".to_string(),
+            core: 0,
+        }
+    }
+
+    fn get_settings(&self) -> BoardSettings {
+        BoardSettings {
+            arch: Some("cortex-m4".to_string()),
+            start_address: 0x00040000,
+        }
+    }
+}

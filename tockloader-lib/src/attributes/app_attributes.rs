@@ -39,7 +39,7 @@ impl TbfFooter {
     }
 }
 
-// TODO(george-cosma): Could take advantages of the trait rework
+// TODO(eva-cosma): Could take advantages of the trait rework
 
 impl AppAttributes {
     pub(crate) fn new(

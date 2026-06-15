@@ -2,6 +2,7 @@
 pub enum KnownBoardNames {
     NucleoF4,
     MicrobitV2,
+    Nrf52840dk,
 }
 
 impl KnownBoardNames {
@@ -9,6 +10,7 @@ impl KnownBoardNames {
         match name {
             "nucleo-f4" => Some(Self::NucleoF4),
             "microbit-v2" => Some(Self::MicrobitV2),
+            "nrf52840dk" => Some(Self::Nrf52840dk),
             _ => None,
         }
     }
@@ -17,12 +19,17 @@ impl KnownBoardNames {
         match &self {
             KnownBoardNames::NucleoF4 => "nucleo-f4",
             KnownBoardNames::MicrobitV2 => "microbit-v2",
+            KnownBoardNames::Nrf52840dk => "nrf52840dk",
         }
     }
 }
 
 pub fn list_known_board_names() -> Vec<KnownBoardNames> {
-    vec![KnownBoardNames::NucleoF4, KnownBoardNames::MicrobitV2]
+    vec![
+        KnownBoardNames::NucleoF4,
+        KnownBoardNames::MicrobitV2,
+        KnownBoardNames::Nrf52840dk,
+    ]
 }
 
 #[cfg(test)]
@@ -38,7 +45,11 @@ mod tests {
 
     #[test]
     fn list_known_boards_updated() {
-        let backup_list = vec![KnownBoardNames::NucleoF4, KnownBoardNames::MicrobitV2];
+        let backup_list = vec![
+            KnownBoardNames::NucleoF4,
+            KnownBoardNames::MicrobitV2,
+            KnownBoardNames::Nrf52840dk,
+        ];
 
         assert_eq!(list_known_board_names(), backup_list, "If this fails it means that you likely forgot to update `list_known_boards`, and subsequently the `list_known_boards_updated` test");
     }

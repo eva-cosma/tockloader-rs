@@ -23,12 +23,12 @@ impl CommandInstall for ProbeRSConnection {
 
         let mut core = session.core(self.target_info.core)?;
 
-        // TODO(george-cosma): extract these informations without bootloader
-        // TODO(george-cosma): extract board name and kernel version to verify app compatability
+        // TODO(eva-cosma): extract these informations without bootloader
+        // TODO(eva-cosma): extract board name and kernel version to verify app compatability
 
         let mut address = settings.start_address;
 
-        // TODO(george-cosma): double-check/rework this
+        // TODO(eva-cosma): double-check/rework this
 
         // Read a block of 200 8-bit words// Loop to check if there are another apps installed
         loop {
@@ -46,8 +46,8 @@ impl CommandInstall for ProbeRSConnection {
             address += whole_len as u64;
         }
 
-        // TODO(george-cosma): extract arch(?)
-        // TODO(george-cosma): THIS IS NOT A TOCK ERROR, this is an error due to invalid board settings.
+        // TODO(eva-cosma): extract arch(?)
+        // TODO(eva-cosma): THIS IS NOT A TOCK ERROR, this is an error due to invalid board settings.
         let arch = settings
             .arch
             .as_ref()
@@ -69,7 +69,7 @@ impl CommandInstall for ProbeRSConnection {
             (address, 0)
         };
 
-        // TODO(george-cosma): This point MIGHT mark a good point to split
+        // TODO(eva-cosma): This point MIGHT mark a good point to split
         // this function (for probe-rs).
 
         // At this point we no longer need to hold the probe-rs connection
@@ -78,7 +78,7 @@ impl CommandInstall for ProbeRSConnection {
 
         // Make sure the binary is a multiple of the page size by padding 0xFFs
 
-        // TODO(george-cosma): check if the page-size differs + support
+        // TODO(eva-cosma): check if the page-size differs + support
         // multiple types of page sizes. Possibly make page size a board
         // setting.
         let page_size = 512;
@@ -152,7 +152,7 @@ impl CommandInstall for ProbeRSConnection {
             options.keep_unwritten_bytes = true;
 
             // Finally, the data can be programmed
-            // TODO(george-cosma): Can we move this outside the loop? Commit once?
+            // TODO(eva-cosma): Can we move this outside the loop? Commit once?
             loader.commit(session, options)?;
         }
 
