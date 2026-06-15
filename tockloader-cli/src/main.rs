@@ -126,10 +126,16 @@ async fn open_connection(user_options: &ArgMatches) -> Result<TockloaderConnecti
 
         Ok(conn)
     } else {
-        let ans =
-            inquire::Select::new("Which debug probe do you want to use?", list_debug_probes())
+        let options = list_debug_probes();
+        let ans = if options.len() == 1 {
+            // TODO(eva-cosma): Why can't we just use it direclty, since option
+            // will not be needed after this?
+            options[0].clone()
+        } else {
+            inquire::Select::new("Which debug probe do you want to use?", options)
                 .prompt()
-                .context("No debug probe is connected.")?;
+                .context("No debug probe is connected.")?
+        };
 
         let mut conn: TockloaderConnection = ProbeRSConnection::new(
             ans,
