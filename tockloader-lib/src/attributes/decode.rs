@@ -63,7 +63,7 @@ pub(crate) fn decode_attribute(step: &[u8]) -> Option<DecodedAttribute> {
     Some(DecodedAttribute::new(key, value))
 }
 
-// TODO(george-cosma) replace this function with std::str::from_utf8(...). It
+// TODO(eva-cosma) replace this function with std::str::from_utf8(...). It
 // does the same thing.
 
 /// Transform a byte-slice into a String.

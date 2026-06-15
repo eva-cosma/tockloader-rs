@@ -122,7 +122,7 @@ impl SystemAttributes {
             }
         }
 
-        // TODO(george-cosma): separate kernel attributes from kernel flags.
+        // TODO(eva-cosma): separate kernel attributes from kernel flags.
 
         let address = 0x40E;
         let mut buf = [0u8; 8];
@@ -241,7 +241,7 @@ impl SystemAttributes {
             }
         }
 
-        // TODO(george-cosma): separate kernel attributes from kernel flags.
+        // TODO(eva-cosma): separate kernel attributes from kernel flags.
 
         let mut pkt = (0x40E_u32).to_le_bytes().to_vec();
         let length = (8_u16).to_le_bytes().to_vec();

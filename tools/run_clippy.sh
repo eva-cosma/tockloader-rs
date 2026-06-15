@@ -11,4 +11,11 @@ fi
 # TODO: What arguments do we want to pass to clippy?
 CLIPPY_ARGS="-D warnings"
 
-cargo clippy -- $CLIPPY_ARGS
+# Clippy entire workspace, havivng warnings be treated normally
+echo "Running clippy on entire workspace, treating warnings as warnings..."
+cargo clippy 
+
+# However, for tockloader and tockloader-lib, we will treat them as errors.
+echo "Running clippy on tockloader and tockloader-lib, treating warnings as errors..."
+cargo clippy -p tockloader -- $CLIPPY_ARGS
+cargo clippy -p tockloader-lib -- $CLIPPY_ARGS

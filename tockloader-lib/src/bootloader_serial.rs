@@ -222,7 +222,7 @@ pub async fn issue_command(
 
         // De-escape and add array of read in the bytes
 
-        // TODO(george-cosma): Extract this into a function and unit test this.
+        // TODO(eva-cosma): Extract this into a function and unit test this.
         let mut i = 0;
         while i < input.len() {
             if i + 1 < input.len() && input[i] == ESCAPE_CHAR && input[i + 1] == ESCAPE_CHAR {

@@ -21,7 +21,7 @@ impl CommandInfo for ProbeRSConnection {
 
         let mut core = session.core(self.target_info.core)?;
 
-        // TODO(george-cosma): extract these informations without bootloader
+        // TODO(eva-cosma): extract these informations without bootloader
         let system_attributes = SystemAttributes::read_system_attributes_probe(&mut core)?;
         let app_attributes =
             AppAttributes::read_apps_data_probe(&mut core, settings.start_address)?;

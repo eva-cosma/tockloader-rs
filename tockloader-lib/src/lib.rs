@@ -29,11 +29,11 @@ pub fn list_serial_ports() -> Result<Vec<SerialPortInfo>, TockloaderError> {
     tokio_serial::available_ports().map_err(|e| TockloaderError::Serial(e.into()))
 }
 
-// TODO(george-cosma): Examine if we need to split these functions into smaller
+// TODO(eva-cosma): Examine if we need to split these functions into smaller
 // parts (reading - processing - writing) for mocking. Could also involve adding
 // functions to the proposed 'Connection' trait.
 
-// TODO(george-cosma): General housekeeping in these functions.
+// TODO(eva-cosma): General housekeeping in these functions.
 
 #[async_trait]
 pub trait CommandList {
