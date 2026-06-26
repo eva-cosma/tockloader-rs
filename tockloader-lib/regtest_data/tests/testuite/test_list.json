@@ -1,0 +1,6 @@
+[
+  {
+    "type": "debug",
+    "message": "[AppAttributes { address: 262144, tbf_header: TbfHeaderV2(TbfHeaderV2 { base: TbfHeaderV2Base { version: 2, header_size: 76, total_size: 8192, flags: 1, checksum: 1699878749 }, main: Some(TbfHeaderV2Main { init_fn_offset: 41, protected_trailer_size: 0, minimum_ram_size: 4580 }), program: Some(TbfHeaderV2Program { init_fn_offset: 41, protected_trailer_size: 0, minimum_ram_size: 4580, binary_end_offset: 1104, version: 0 }), package_name: Some(TbfHeaderV2PackageName { size: 7, buffer: [99, 95, 104, 101, 108, 108, 111, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }), writeable_regions: Some([None, None, None, None]), fixed_addresses: None, permissions: None, storage_permissions: None, kernel_version: Some(TbfHeaderV2KernelVersion { major: 2, minor: 2 }), short_id: None }), tbf_footers: [TbfFooter { credentials: Reserved(7084), size: 7084 }] }]"
+  }
+]

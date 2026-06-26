@@ -6,6 +6,7 @@ Zips the project directory (entrypoint.sh at archive root), uploads as source,
 schedules a job on nrf52840 hardware, waits for completion, and reports pass/fail.
 """
 
+import argparse
 import asyncio
 import io
 import json
@@ -16,18 +17,24 @@ import requests
 import websockets
 import zipfile
 
-BASE_URL = "http://localhost:5288"
-WS_URL = "ws://localhost:5288/ws"
+BASE_URL = "https://tw.semaka.ro:2053"
+WS_URL = "wss://tw.semaka.ro:2053/ws"
 
 RUNNER_SLUG = "admin-runner"
-
-USER_EMAIL = "admin@default.com"
-CLIENT_API_KEY = (
-    "ADFD7ACB7976AA82E2BEC686284392A4E9B10BAFC2A3699E7E376E11ECC250681"
-    "152F617E6E4F8063819BCA0540FBBC790ACD7DAA839B2E0005C3547DB38457D"
-)
+USER_EMAIL = "admin@tw.semaka.ro"
 
 PASS_SENTINEL = "-=-= End test pipeline =-=-"
+
+
+def load_api_key(api_key_file: str | None) -> str:
+    if api_key_file:
+        with open(api_key_file) as f:
+            return f.read().strip()
+    key = os.environ.get("CLIENT_API_KEY")
+    if not key:
+        print("Error: set CLIENT_API_KEY or pass --api-key-file", file=sys.stderr)
+        sys.exit(1)
+    return key
 
 EXCLUDE_DIRS = {".git", "target", "__pycache__", ".venv"}
 
@@ -45,10 +52,10 @@ def create_project_zip(project_dir: str) -> bytes:
     return buf.getvalue()
 
 
-def rest_get_client_jwt() -> str:
+def rest_get_client_jwt(client_api_key: str) -> str:
     resp = requests.post(
         f"{BASE_URL}/api/auth/newUserSession",
-        json={"userEmail": USER_EMAIL, "clientApiKey": CLIENT_API_KEY},
+        json={"userEmail": USER_EMAIL, "clientApiKey": client_api_key},
     )
     resp.raise_for_status()
     token = resp.json()["token"]
@@ -93,7 +100,7 @@ async def ws_send_recv(ws, payload: dict) -> dict:
     return json.loads(raw)
 
 
-async def run_client_session(source_id: str, client_jwt: str, job_description: dict) -> dict:
+async def run_client_session(source_id: str, client_jwt: str, job_description: dict, client_api_key: str) -> dict:
     async with websockets.connect(WS_URL) as ws:
         resp = await ws_send_recv(ws, {
             "command": "HELLO_CLIENT",
@@ -104,7 +111,7 @@ async def run_client_session(source_id: str, client_jwt: str, job_description: d
         resp = await ws_send_recv(ws, {
             "command": "CONFIG_CLIENT",
             "user_identifier": USER_EMAIL,
-            "api_key": CLIENT_API_KEY,
+            "api_key": client_api_key,
             "runner_slug": RUNNER_SLUG,
         })
         print(f"[Client WS] CONFIG_CLIENT -> {resp}")
@@ -154,6 +161,12 @@ async def run_client_session(source_id: str, client_jwt: str, job_description: d
 
 
 async def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--api-key-file", help="Path to file containing the client API key (plaintext)")
+    args = parser.parse_args()
+
+    client_api_key = load_api_key(args.api_key_file)
+
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_dir = os.path.dirname(script_dir)
     job_description_path = os.path.join(script_dir, "job.json")
@@ -168,10 +181,10 @@ async def main():
     zip_bytes = create_project_zip(project_dir)
     print(f"[Zip] Archive size: {len(zip_bytes):,} bytes")
 
-    client_jwt = rest_get_client_jwt()
+    client_jwt = rest_get_client_jwt(client_api_key)
     source_id = rest_upload_source(client_jwt, zip_bytes)
 
-    artifacts = await run_client_session(source_id, client_jwt, job_description)
+    artifacts = await run_client_session(source_id, client_jwt, job_description, client_api_key)
 
     stdout_content = artifacts.get("stdout_artifact", "<not found>")
     stderr_content = artifacts.get("stderr_artifact", "<not found>")

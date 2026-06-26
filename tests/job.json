@@ -4,6 +4,7 @@
     "stdout_artifact": true,
     "stderr_artifact": true,
     "artifacts": [
-        "./list_output.txt"
+        "./list_output.txt",
+        "./tockloader-lib/regtest_data/tests/testuite/test_list.json"
     ]
 }
