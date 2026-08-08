@@ -1,6 +1,6 @@
 # ![TockLoader](http://www.tockos.org/assets/img/tockloader.svg#a "Tockloader Logo")
 
-This is a work-in-progress port to Rust for Tock Loader.
+This is a final port to Rust for Tock Loader.
 
 Please use the original Python version of [TockLoader](https://www.github.com/tock/tockloader).
 
